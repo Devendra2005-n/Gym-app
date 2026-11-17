@@ -20,17 +20,23 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      - name: Unzip project
+        run: unzip -q gymflow-ai-project.zip
+
       - name: Install dependencies
+        working-directory: gymflow
         run: npm ci || npm install
 
       - name: Run logic tests
+        working-directory: gymflow
         run: npm test
 
       - name: Sync web app into Android project
+        working-directory: gymflow
         run: npx cap sync android
 
       - name: Build debug APK
-        working-directory: android
+        working-directory: gymflow/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -39,4 +45,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: GymFlow-AI-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: gymflow/android/app/build/outputs/apk/debug/app-debug.apk
