@@ -11,6 +11,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Finds the app folder (the one that has capacitor.config.*), whether the files are in the repo root or inside a sub-folder.
+      - name: Locate the app folder
+        id: loc
+        run: |
+          cfg=$(find . -maxdepth 4 -name 'capacitor.config.*' -not -path '*/node_modules/*' | head -1)
+          if [ -z "$cfg" ]; then echo "capacitor.config.* not found. Files in the repo:"; ls -la; exit 1; fi
+          dir=$(dirname "$cfg")
+          echo "App folder: $dir"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -23,16 +33,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Install dependencies
+        working-directory: ${{ steps.loc.outputs.dir }}
         run: npm ci || npm install
 
       - name: Run logic tests
+        working-directory: ${{ steps.loc.outputs.dir }}
         run: npm test
 
       - name: Sync web app into Android project
+        working-directory: ${{ steps.loc.outputs.dir }}
         run: npx cap sync android
 
       - name: Build debug APK
-        working-directory: android
+        working-directory: ${{ steps.loc.outputs.dir }}/android
         run: |
           chmod +x gradlew
           # Maven Central sometimes answers "429 Too Many Requests" to shared GitHub runners; retry a few times.
@@ -47,4 +60,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: GymFlow-AI-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ steps.loc.outputs.dir }}/android/app/build/outputs/apk/debug/app-debug.apk
