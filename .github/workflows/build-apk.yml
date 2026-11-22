@@ -11,11 +11,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Finds the app folder (the one that has capacitor.config.*), whether the files are in the repo root or inside a sub-folder.
+      # Finds the app folder (the one that has capacitor.config.*).
+      # If you uploaded the project as a .zip file (not extracted), the zip is unpacked here first.
       - name: Locate the app folder
         id: loc
         run: |
-          cfg=$(find . -maxdepth 4 -name 'capacitor.config.*' -not -path '*/node_modules/*' | head -1)
+          find_cfg() { find . -maxdepth 4 -name 'capacitor.config.*' -not -path '*/node_modules/*' | head -1; }
+          cfg=$(find_cfg)
+          if [ -z "$cfg" ]; then
+            echo "No app files found, looking for an uploaded .zip"
+            # plain names first, then copies like "name (1).zip" so the newest download wins
+            for z in *.zip; do [ -f "$z" ] && [[ "$z" != *"("* ]] && { echo "Unpacking $z"; unzip -qo "$z"; }; done
+            for z in *.zip; do [ -f "$z" ] && [[ "$z" == *"("* ]] && { echo "Unpacking $z"; unzip -qo "$z"; }; done
+            cfg=$(find_cfg)
+          fi
           if [ -z "$cfg" ]; then echo "capacitor.config.* not found. Files in the repo:"; ls -la; exit 1; fi
           dir=$(dirname "$cfg")
           echo "App folder: $dir"
