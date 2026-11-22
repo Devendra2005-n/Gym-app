@@ -20,29 +20,31 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Unzip project
-        run: unzip -q gymflow-ai-project.zip
+      - uses: gradle/actions/setup-gradle@v4
 
       - name: Install dependencies
-        working-directory: gymflow
         run: npm ci || npm install
 
       - name: Run logic tests
-        working-directory: gymflow
         run: npm test
 
       - name: Sync web app into Android project
-        working-directory: gymflow
         run: npx cap sync android
 
       - name: Build debug APK
-        working-directory: gymflow/android
+        working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug
+          # Maven Central sometimes answers "429 Too Many Requests" to shared GitHub runners; retry a few times.
+          ok=0
+          for i in 1 2 3; do
+            if ./gradlew assembleDebug --no-daemon; then ok=1; break; fi
+            echo "Attempt $i failed, waiting 45s before retrying"; sleep 45
+          done
+          [ "$ok" = 1 ]
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: GymFlow-AI-debug-apk
-          path: gymflow/android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
